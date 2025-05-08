@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Participation Record</title>
+</head>
+<body>
+  <h1>Upload Participation Info</h1>
+  <form id="participationForm">
+    <label>Name: <input type="text" id="name" required /></label><br>
+    <label>Email: <input type="email" id="email" required /></label><br>
+    <label>Date: <input type="date" id="date" required /></label><br>
+    <label>Upload Photo: <input type="file" id="photo" accept="image/*" required /></label><br>
+    <button type="submit">Submit</button>
+  </form>
+
+  <h3 id="status"></h3>
+
+  <script>
+    const apiUrl = 'https://x3qv93hq6f.execute-api.us-east-2.amazonaws.com/prod/recordParicipationFunction';
+    const s3UploadUrl = 'https://upload-bucket-user.s3.us-east-2.amazonaws.com/'; // used with signed URL if needed
+
+    document.getElementById('participationForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById('name').value;
+      const email = document.getElementById('email').value;
+      const date = document.getElementById('date').value;
+      const photoFile = document.getElementById('photo').files[0];
+
+      const status = document.getElementById('status');
+      status.innerText = "Uploading image...";
+
+      // Upload photo to S3 using a presigned URL (if implemented in Lambda), or make S3 public write for testing
+      const photoKey = `${Date.now()}_${photoFile.name}`;
+      const s3Upload = await fetch(`https://upload-bucket-user.s3.us-east-2.amazonaws.com/${photoKey}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': photoFile.type
+        },
+        body: photoFile
+      });
+
+      if (!s3Upload.ok) {
+        status.innerText = "Failed to upload photo.";
+        return;
+      }
+
+      status.innerText = "Processing participation...";
+
+      // Call API to trigger Lambda
+      const result = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email,
+          date,
+          user_image_key: photoKey
+        })
+      });
+
+      const data = await result.json();
+      status.innerText = data.message || "Submitted successfully!";
+    });
+  </script>
+</body>
+</html>
